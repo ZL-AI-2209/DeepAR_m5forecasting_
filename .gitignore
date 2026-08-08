@@ -1,0 +1,36 @@
+# 1. ИГНОРИРУЕМ АБСОЛЮТНО ВСЁ
+*
+
+# 2. СРАЗУ ИСКЛЮЧАЕМ НЕНУЖНЫЕ ПАПКИ (до всяких разрешений!)
+
+
+# 3. РАЗРЕШАЕМ ЗАХОДИТЬ В ПАПКИ (кроме уже исключённых выше)
+!**/
+
+# 4. РАЗРЕШАЕМ КОНКРЕТНЫЕ ФАЙЛЫ
+!.gitignore
+!README.md
+!LSTM.py
+!Net.py
+!dataloader.py
+!evaluate.py
+!preprocess_elect.py
+!search_hyperparams.py
+!train.py
+!utils.py
+!params.json
+
+venv/
+env/
+.venv/
+__pycache__/
+.git/
+data/
+models/
+logs/
+*.zip
+*.npy
+*.mmap
+*.csv
+*.pkl
+*.log

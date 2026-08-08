@@ -1,0 +1,64 @@
+{
+    "experiments_name": "experiments",
+
+    "save_path" : "data/elect",
+    "save_name_train" : "batch_train",
+    "save_name_test" : "batch_test",
+    "device": "cuda",
+    "plot_dir": "plot_metrics",
+
+
+    "train_start": "2011-01-29",
+    "train_end": "2016-04-24",
+    "test_start": "2011-01-29",
+    "test_end": "2016-05-22",
+
+
+    "relative_metrics": "True",
+    "sampling": "True",
+    "model_dir": "C:\\Users\\Лев\\Desktop\\DeepAR\\experiments",
+
+
+    "name_zip_data": "m5-forecasting-accuracy.zip",
+    
+    "learning_rate": 1e-3,
+    "patience": 10,
+
+    "batch_size": 2048,
+    "batch_size_test": 128,
+    "num_epochs": 50,
+
+    "dropouti": 0.4,
+    "dropouto": 0.4,
+    "dropoutw": 0.2,
+    
+    "train_windows": 192,
+    "predict_steps": 28,
+    "start_predict": 164,
+    "stride_size":  24,
+    "sample_size": 100,
+    
+    "lstm_hidden_size": 128  ,
+    "lstm_num_layers": 2,
+    "input_lstm_dim": 44,
+    
+    "input_size": 9,
+    "cov_dim": 7,
+    
+    "num_emb_item": 3049,
+    "dim_emb_item": 16,
+    
+    "num_emb_dept": 7,
+    "dim_emb_dept": 4,
+    
+    "num_emb_cat": 3,
+    "dim_emb_cat": 4,
+    
+    "num_emb_store": 10,
+    "dim_emb_store": 4,
+    
+    "num_emb_state": 3,
+    "dim_emb_state": 4,
+    
+    "num_static_cov": 5
+}
