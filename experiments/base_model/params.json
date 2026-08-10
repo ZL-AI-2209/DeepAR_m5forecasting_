@@ -40,7 +40,7 @@
     
     "lstm_hidden_size": 128  ,
     "lstm_num_layers": 2,
-    "input_lstm_dim": 44,
+    "input_lstm_dim": 50,
     
     "input_size": 9,
     "cov_dim": 7,

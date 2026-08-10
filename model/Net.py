@@ -125,7 +125,8 @@ class Net(nn.Module):
 
             NB_distrib = torch.distributions.NegativeBinomial(r , logits)
             
-            preds[t] = NB_distrib.sample().squeeze()  # [B * N]
+            preds[t] = NB_distrib.sample().squeeze()
+            pred = preds[t]
             
             if t < predict_steps - 1 and timestep + 1 < seq_len and t > 0:
                 x_expanded[timestep + 1, :, 0] = pred
@@ -141,19 +142,6 @@ class Net(nn.Module):
         
 
         return samples, sample_mu, sample_mediam
-
-
-def loss_fn(mu: torch.Tensor, a: torch.Tensor, labels: torch.Tensor, mask: torch.Tensor):
-    
-    eps = 1e-8
-    r = 1.0 / (a + eps)
-    logits = torch.log(a * mu + eps)
-    distribution_NB = torch.distributions.negative_binomial.NegativeBinomial (r, logits= logits)
-    likelyhood = distribution_NB.log_prob(labels)
-    
-    return -torch.mean(likelyhood, dim = 1)
-
-
 
 
 def loss_fn(mu: torch.Tensor, a: torch.Tensor, labels: torch.Tensor, mask: torch.Tensor):
@@ -253,7 +241,7 @@ def accuracy_ROU_(rou: float, samples: torch.Tensor, labels: torch.Tensor, mask:
     
     min_sample_rou = torch.quantile(samples, q = rou, dim=0) # [batch_size, predict_len]
 
-    abs_diff = (labels - min_sample_rou) # [batch_size, p  redict_len]
+    abs_diff = (labels - min_sample_rou) # [batch_size, predict_len]
     
     
     loss =  2 * torch.max (rou * abs_diff, (rou - 1) * abs_diff)
@@ -298,34 +286,53 @@ def quantile_CRPS (samples: torch.Tensor, labels: torch.Tensor, quantile_grid, m
                             
     return np.array ([numerator, denominator])
 
-def quantile_CRPS_ (samples: torch.Tensor, labels: torch.Tensor, quantile_grid, mask: torch.Tensor, relative = False):
-    
-    quantile_rize = len(quantile_grid)
-    
-    # samples - [sample_size, batch_size, len_seq]
-    # labels - [batch_size, predict_len]
-    
-    quantile_samples = torch.quantile (samples, q = quantile_grid, dim = 0)
-    
-    pred_quantile_grid = quantile_grid.view (-1, 1, 1)
-    
-    diff_labels = labels.unsqueeze(0) 
-    
 
-    coef_norm = 2 / quantile_rize
-    
-    
+import torch
+
+
+def quantile_CRPS_(samples: torch.Tensor, labels: torch.Tensor, quantile_grid, mask: torch.Tensor,
+                   relative: bool = False):
+
+    # 1. Приведение quantile_grid к тензору на нужном device
+    if not isinstance(quantile_grid, torch.Tensor):
+        quantile_grid = torch.tensor(quantile_grid, dtype=torch.float32, device=samples.device)
+    else:
+        quantile_grid = quantile_grid.to(device=samples.device, dtype=torch.float32)
+
+    quantile_size = len(quantile_grid)
+
+    # 2. Вычисление квантилей по сэмплам: [num_quantiles, batch_size, predict_len]
+    quantile_samples = torch.quantile(samples, q=quantile_grid, dim=0)
+
+    # [num_quantiles, 1, 1]
+    pred_quantile_grid = quantile_grid.view(-1, 1, 1)
+
+    # [1, batch_size, predict_len]
+    diff_labels = labels.unsqueeze(0)
+
+    # Pinball Loss
     diff = diff_labels - quantile_samples
     loss = torch.max(pred_quantile_grid * diff, (pred_quantile_grid - 1.0) * diff)
-    
+
+    # Применяем маску по всем квантилям
     loss = loss * mask.unsqueeze(0)
-    
-    numerator = coef_norm * torch.sum (loss, dim = 1 ).item()
-                            
+
+    # Коэффициент нормализации квантилей (2 / K)
+    coef_norm = 2.0 / quantile_size
+
+    # Полная сумма потерь по всем квантилям, батчу и временным шагам (скаляр)
+    numerator = coef_norm * torch.sum(loss)
+
+    # 3. Расчет знаменателя
     if relative:
-        denominator = torch.sum(mask, dim = 1).item()                       
+        # Среднее значение ошибки на одну точку (деление на количество непустых значений)
+        denominator = torch.sum(mask)
     else:
-        denominator = torch.sum(torch.abs (labels * mask, dim = 1) ).item()
-                            
+        # Нормализованная ошибка относительно объема/суммы реальных значений (Weighted Quantile Loss / ND)
+        denominator = torch.sum(torch.abs(labels * mask))
+
+    # Защита от деления на ноль
+    denominator = torch.clamp(denominator, min=1e-8)
+
+    # Возвращаем тензоры на CPU без градиентов (или результатом деления)
     return numerator.detach().cpu(), denominator.detach().cpu()
-    
