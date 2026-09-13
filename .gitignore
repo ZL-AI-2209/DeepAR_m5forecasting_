@@ -18,6 +18,7 @@
 !search_hyperparams.py
 !train.py
 !utils.py
+!mask_generator.py
 !params.json
 
 venv/
