@@ -32,7 +32,6 @@ class LoadDataset(Dataset):
 
     def _open_zarr(self):
         if self.root is None:
-            # Используем mode='r' и отключаем внутренние блокировки Zarr
             self.root = zarr.open(self.zarr_path, mode='r')
             self.x_arr = self.root['x_input']
             self.labels_arr = self.root['labels']
@@ -46,12 +45,11 @@ class LoadDataset(Dataset):
     def __getitem__(self, idx):
         self._open_zarr()
 
-        # Читаем точечно по индексу idx
         x_input = self.x_arr[idx]
         labels = self.labels_arr[idx]
         v_input = self.v_arr[idx]
         static_cov = self.static_arr[idx]
-        mask_val = self.mask_labels_arr[idx] # Берем срез по idx!
+        mask_val = self.mask_labels_arr[idx]
 
         x_tensor = torch.from_numpy(np.ascontiguousarray(x_input)).to(torch.float32)
         labels_tensor = torch.from_numpy(np.ascontiguousarray(labels)).to(torch.float32)

@@ -6,7 +6,6 @@ import logging
 import torch.nn.functional as F
 import numpy as np
 
-# Исправлен импорт: импортируем класс LSTM из модуля model.LSTM
 from model.LSTM import LSTM
 
 logger = logging.getLogger(__name__)
@@ -35,7 +34,7 @@ class Net(nn.Module):
             dropouti=params.dropouti,
             dropouto=params.dropouto,
             dropoutw=params.dropoutw,
-            batch_first=False  # Важно: False означает [seq_len, batch_size, features]
+            batch_first=False  
         )
 
         self.distribution_preMu = nn.Linear(params.lstm_hidden_size * params.lstm_num_layers, 1)
@@ -207,16 +206,9 @@ def accuracy_RMSE_(mu: torch.Tensor, labels: torch.Tensor,  mask: torch.Tensor, 
 def accuracy_ROU(rou: float, samples: torch.Tensor, labels: torch.Tensor, mask: torch.Tensor, relative=False):
     pred_samples = samples.shape[0]
     
-    
-    # samples - [sample_size, batch_size, predict_len]
-    
-    # labels - [batch_size, predict_len]
-    
+    min_sample_rou = torch.quantile(samples, q = rou, dim=0)
 
-    
-    min_sample_rou = torch.quantile(samples, q = rou, dim=0) # [batch_size, predict_len]
-
-    abs_diff = labels - min_sample_rou # [batch_size, predict_len]
+    abs_diff = labels - min_sample_rou 
 
     loss =  2 * torch.max (rou * abs_diff, (rou - 1) * abs_diff)
     
@@ -232,16 +224,10 @@ def accuracy_ROU(rou: float, samples: torch.Tensor, labels: torch.Tensor, mask: 
     
     
 def accuracy_ROU_(rou: float, samples: torch.Tensor, labels: torch.Tensor, mask: torch.Tensor, relative=False):
-    
-    # samples - [sample_size, batch_size, predict_len]
-    
-    # labels - [batch_size, predict_len]
-    
 
-    
-    min_sample_rou = torch.quantile(samples, q = rou, dim=0) # [batch_size, predict_len]
+    min_sample_rou = torch.quantile(samples, q = rou, dim=0) 
 
-    abs_diff = (labels - min_sample_rou) # [batch_size, predict_len]
+    abs_diff = (labels - min_sample_rou) 
     
     
     loss =  2 * torch.max (rou * abs_diff, (rou - 1) * abs_diff)
@@ -256,12 +242,7 @@ def accuracy_ROU_(rou: float, samples: torch.Tensor, labels: torch.Tensor, mask:
 
 def quantile_CRPS (samples: torch.Tensor, labels: torch.Tensor, quantile_grid, mask: torch.Tensor, relative = False):
 
-
-    
     quantile_rize = len(quantile_grid)
-    
-    # samples - [sample_size, batch_size, len_seq]
-    # labels - [batch_size, predict_len]
     
     quantile_samples = torch.quantile (samples, q = quantile_grid, dim = 0)
     
@@ -287,13 +268,10 @@ def quantile_CRPS (samples: torch.Tensor, labels: torch.Tensor, quantile_grid, m
     return np.array ([numerator, denominator])
 
 
-import torch
-
 
 def quantile_CRPS_(samples: torch.Tensor, labels: torch.Tensor, quantile_grid, mask: torch.Tensor,
                    relative: bool = False):
 
-    # 1. Приведение quantile_grid к тензору на нужном device
     if not isinstance(quantile_grid, torch.Tensor):
         quantile_grid = torch.tensor(quantile_grid, dtype=torch.float32, device=samples.device)
     else:
@@ -301,38 +279,26 @@ def quantile_CRPS_(samples: torch.Tensor, labels: torch.Tensor, quantile_grid, m
 
     quantile_size = len(quantile_grid)
 
-    # 2. Вычисление квантилей по сэмплам: [num_quantiles, batch_size, predict_len]
     quantile_samples = torch.quantile(samples, q=quantile_grid, dim=0)
 
-    # [num_quantiles, 1, 1]
     pred_quantile_grid = quantile_grid.view(-1, 1, 1)
 
-    # [1, batch_size, predict_len]
     diff_labels = labels.unsqueeze(0)
 
-    # Pinball Loss
     diff = diff_labels - quantile_samples
     loss = torch.max(pred_quantile_grid * diff, (pred_quantile_grid - 1.0) * diff)
 
-    # Применяем маску по всем квантилям
     loss = loss * mask.unsqueeze(0)
 
-    # Коэффициент нормализации квантилей (2 / K)
     coef_norm = 2.0 / quantile_size
 
-    # Полная сумма потерь по всем квантилям, батчу и временным шагам (скаляр)
     numerator = coef_norm * torch.sum(loss)
 
-    # 3. Расчет знаменателя
     if relative:
-        # Среднее значение ошибки на одну точку (деление на количество непустых значений)
         denominator = torch.sum(mask)
     else:
-        # Нормализованная ошибка относительно объема/суммы реальных значений (Weighted Quantile Loss / ND)
         denominator = torch.sum(torch.abs(labels * mask))
-
-    # Защита от деления на ноль
+        
     denominator = torch.clamp(denominator, min=1e-8)
 
-    # Возвращаем тензоры на CPU без градиентов (или результатом деления)
     return numerator.detach().cpu(), denominator.detach().cpu()

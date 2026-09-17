@@ -112,8 +112,8 @@ def plot_all_epoch(variable, save_name, location='./figures/'):
 
 def init_metrics(sample = True):
     metrics = {
-        'ND': np.zeros(2),  # numerator, denominator
-        'RMSE': np.zeros(3),  # numerator, denominator, time step count
+        'ND': np.zeros(2),  
+        'RMSE': np.zeros(3), 
         'test_loss': np.zeros(2),
     }
     

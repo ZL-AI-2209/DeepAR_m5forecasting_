@@ -16,7 +16,8 @@
 
     "relative_metrics": "True",
     "sampling": "True",
-    "model_dir": "C:\\Users\\Лев\\Desktop\\DeepAR\\experiments",
+    "model_dir": "C:\\Users\\Лев\\Desktop\\DeepAR-M5forecasting-main\\experiments",
+    "path_save_mask_generator": "C:\\Users\\FuckHacker\\Desktop\\DeepAR-M5forecasting-main\\mask_generator_save",
 
 
     "name_zip_data": "m5-forecasting-accuracy.zip",

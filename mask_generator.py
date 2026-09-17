@@ -83,13 +83,13 @@ def h_threshold_search_poisson (window_size, lambda_0, N_samples, error_rate):
     H = np.zeros_like(lambda_0)
     G = np.zeros(N_samples)
     
-    lambda_1 = 0.001
     eps = 0.0001
+    lambda_1 = 0.05
     
     log_lambda_ratio = np.log(lambda_1 / (lambda_0 + eps) )
     lambda_diff = lambda_1 - lambda_0
     
-    G_max = 0
+    G_max = np.zeros_like (N_samples)
     
     for i, lamb in enumerate(lambda_0):
         sample_poisson = np.random.poisson(lam=lamb, size=(N_samples, window_size))
@@ -100,7 +100,7 @@ def h_threshold_search_poisson (window_size, lambda_0, N_samples, error_rate):
             G_k = np.maximum(0, G + s[:, k])
             G_max = np.maximum (G_k, G_max)
         
-        H[i] = np.quantile(G_max, q = error_rate )
+        H[i] = np.quantile(G_max, q = 1 - error_rate )
     
     return H 
 
@@ -117,18 +117,18 @@ def h_threshold_search_ZIP (window_size, lambda_0, p_value, N_samples, error_rat
     H = np.zeros( (num_channels, p_value.shape[0]) )
     G = np.zeros(N_samples)
     
-    lambda_1 = 0.001
     eps = 0.0001
+    lambda_1 = 0.05
+    
     
     log_lambda_ratio = np.log(lambda_1 / (lambda_0 + eps) )
     lambda_diff = lambda_1 - lambda_0
     p1_zero = p_value + (1 - p_value) * np.exp(-lambda_1)
     
-    G_max = 0
+    G_max = np.zeros_like (N_samples)
     
     for i, lamb in enumerate(lambda_0):
-        
-        
+
         p0_zero = p_value + (1 - p_value) * np.exp(-lamb)
         
         for r, p in enumerate(p_value):
@@ -150,7 +150,7 @@ def h_threshold_search_ZIP (window_size, lambda_0, p_value, N_samples, error_rat
                 
                 G_max = np.maximum (G_k, G_max)
         
-            H[i, r] = np.quantile(G_max, q = error_rate )
+            H[i, r] = np.quantile(G_max, q = 1 -  error_rate )
     
     return H 
 
@@ -160,10 +160,10 @@ def cusum_detected(window, decomposed_window, mask_window, poisson_series, pi_ha
     num_channels = window.shape[0]
     window_size = window.shape[1]
     eps = 0.0001
-    lambda_1 = 0.0001
     
     N = mask_window.sum(axis = 1)
     lambda_0 = ((decomposed_window).sum(axis = 1) / N) + eps 
+    lambda_1 = 0.05
 
     ZIP_series = ~poisson_series
 
@@ -228,7 +228,7 @@ def cusum_detected(window, decomposed_window, mask_window, poisson_series, pi_ha
                 OOS_start[ch] = zero_steps[-1] + 1
                 OOS_end[ch] = first_alarm 
                 triggered_channels[ch] = 1 
-    print (np.sort (OOS_end - OOS_start))
+
     return OOS_start, OOS_end, triggered_channels
     
 def search_max_lambda_p (data, data_start, window_size):
@@ -275,7 +275,7 @@ def search_max_lambda_p (data, data_start, window_size):
 def pred_lambda_p( min_lambda, max_lambda, min_p_value, max_p_value , window_size, num_points = 50):
     
 
-    lambda_grid = np.exp (np.linspace(np.log(1), np.log (max_lambda), num = num_points))
+    lambda_grid = np.exp (np.linspace(np.log(1), np.log (max_lambda), num = num_points - 1))
     lambda_grid = np.insert (lambda_grid, 0, min_lambda)
     
     i = np.arange(num_points)
@@ -361,7 +361,7 @@ def prophet_decomposed(data, data_start, calendar, path_save):
         var_weekly_component = np.var(weekly_abs) + np.var (ers)
         
         yearS_strength[i] = np.maximum (0.0, 1 - var_ers / var_yearly_component)
-        weekS_strength[i] = np.maximum (0.0, 1 - var_ers/ var_weekly_component )
+        weekS_strength[i] = np.maximum (0.0, 1 - var_ers / var_weekly_component )
         
         
         N = len_data - start
@@ -509,27 +509,22 @@ def checking_OOS(sales, data, mask, start, stop, data_start, series_trigger, pre
     
     print ("    Подтверждение результатов cusum алгоритма ...")
     
-    print (np.sort (stop - start))
-    r = 0
-    for idx_series in tqdm  (sorted_series_trigger):
-        r += 1
+    for idx_serie in tqdm  (sorted_series_trigger):
         
-    
-    
-        item_id = sales.iloc[idx_series]['item_id']
-        state_id = sales.iloc[idx_series]['state_id']
-        id_ = sales.iloc[idx_series]['id']
+        item_id = sales.iloc[idx_serie]['item_id']
+        state_id = sales.iloc[idx_serie]['state_id']
+        id_ = sales.iloc[idx_serie]['id']
         
-        start_cell = start[idx_series]
-        stop_cell = stop[idx_series]
+        start_cell = start[idx_serie]
+        stop_cell = stop[idx_serie]
         
         start_pre_period = start_cell - pre_period
-        len_period = stop_cell - start_cell + 1
+        len_period = stop_cell - start_cell
         
         idex_goods_index = (sales[(sales['item_id'] == item_id) & (sales['id'] != id_)]).index
         id_reg_analog = (sales.loc[idex_goods_index, 'state_id'] == state_id).values
         
-        similarities_series = similarities_series_id[idx_series][:10] 
+        similarities_series = similarities_series_id[idx_serie][:10] 
         
         
         true_start_close_analog = data_start[idex_goods_index] < (start_cell - 45)
@@ -541,9 +536,9 @@ def checking_OOS(sales, data, mask, start, stop, data_start, series_trigger, pre
         if (true_close_analog):
         
             max_start_close_analog = np.max(data_start[idex_goods_index])
-            max_start_close_analog = max(data_start[idx_series], max_start_close_analog)
+            max_start_close_analog = max(data_start[idx_serie], max_start_close_analog)
             
-            idex_analog = np.concatenate((np.array([idx_series]), idex_goods_index, similarities_series))    
+            idex_analog = np.concatenate((np.array([idx_serie]), idex_goods_index, similarities_series))    
         else:
             idex_analog = similarities_series
             
@@ -556,7 +551,7 @@ def checking_OOS(sales, data, mask, start, stop, data_start, series_trigger, pre
         number_discrete_close_analog = 0
         discrete_series = []
 
-        
+
         while (number_series < number_analog) and (number_discrete < 150 or number_series < number_close_analog + 1):
 
             
@@ -598,8 +593,8 @@ def checking_OOS(sales, data, mask, start, stop, data_start, series_trigger, pre
         
             analog = data[idex_goods_index, start_slice:start_cell]
         
-            cell_series = data[idx_series, start_slice:start_cell]
-            mask_cell = mask[idx_series, start_slice:start_cell].copy()
+            cell_series = data[idx_serie, start_slice:start_cell]
+            mask_cell = mask[idx_serie, start_slice:start_cell].copy()
             mask_analog = mask[idex_goods_index, start_slice:start_cell].copy()
         
         else:
@@ -624,56 +619,11 @@ def checking_OOS(sales, data, mask, start, stop, data_start, series_trigger, pre
             mask_filter = False
         else:
             mask_filter = not (filter_1 | filter_2 | filter_3 | filter_4)
-
-        
-        mask[idx_series, start_cell:stop_cell] = mask_filter # в случае невозможности проверки из за отсутсвия данных принимаем оос 
+            
+        mask[idx_serie, start_cell:stop_cell] = mask_filter # в случае невозможности проверки из за отсутсвия данных принимаем оос 
         
         debug_plot = False
-        if (r > 15000): 
-            debug_plot = True
-        if debug_plot:
-            # Определяем окно для отображения: 60 дней до start_cell и 30 дней после stop_cell
-            plot_start = max(0, start_cell - 60)
-            plot_end = min(data.shape[1], stop_cell + 30)
-            time_axis = np.arange(plot_start, plot_end)
-            
-            plt.figure(figsize=(14, 6))
-            
-            # 1. Рисуем целевой ряд
-            target_series = data[idx_series, plot_start:plot_end]
-            plt.plot(time_axis, target_series, label=f'Целевой ряд (ID: {id_})', color='blue', linewidth=2, zorder=3)
-            
-            # 2. Рисуем ближайшие аналоги (полупрозрачным серым для контекста)
-            for analog_idx in idex_goods_index[:3]: # Берем не более 3 аналогов, чтобы не засорять график
-                analog_series = data[analog_idx, plot_start:plot_end]
-                plt.plot(time_axis, analog_series, color='gray', alpha=0.4, linestyle='--', linewidth=1, zorder=1)
-            
-            # 3. Выделяем проверяемый период (start_cell до stop_cell)
-            # Зеленый, если проверка пройдена (mask_filter=True), Красный, если провалена (False)
-            highlight_color = 'green' if mask_filter else 'red'
-            plt.axvspan(start_cell, stop_cell, color=highlight_color, alpha=0.2, label=f'Проверяемый период [{start_cell}:{stop_cell}]', zorder=2)
-            
-            # 4. Вертикальные линии границ
-            plt.axvline(start_cell, color='red', linestyle=':', alpha=0.8, linewidth=1.5)
-            plt.axvline(stop_cell, color='red', linestyle=':', alpha=0.8, linewidth=1.5)
-            
-            # Оформление
-            status_text = "ПРОЙДЕН" if mask_filter else "ОТСЕЯН (OOS)"
-            plt.title(f'Проверка OOS: {status_text} | Item: {item_id} | State: {state_id}\n'
-                      f'Фильтры: F1={filter_1}, F2={filter_2}, F3={filter_3}, F4={filter_4}', fontsize=12)
-            plt.xlabel('Временной индекс (дни)', fontsize=10)
-            plt.ylabel('Продажи', fontsize=10)
-            plt.legend(loc='upper left')
-            plt.grid(True, alpha=0.3, zorder=0)
-            
-            # Ограничиваем ось Y, чтобы выбросы не сплющивали график (опционально)
-            # plt.ylim(bottom=0) 
-            
-            plt.tight_layout()
-            plt.show()
-        print (start_cell, stop_cell)
-        print (filter_1, filter_2, filter_3, filter_4)
-        print (mask[idx_series, start_cell:stop_cell])
+        
     print ("    Результаты проверены. Этап пройден.")
     return mask 
 
@@ -839,8 +789,7 @@ def sales_trend (analog, mask, id_reg_analog, cell_series, mask_cell):
     return conf_1 | conf_2
 
 def min_analog (discret_array, analog, mask_analog, len_period):
-
-
+    
     mean_analog = analog.sum(axis = 1) / (mask_analog.sum (axis = 1) + 0.01)
     
     id_min = np.argsort(mean_analog)
@@ -895,11 +844,10 @@ def generate_mask (data, sales, calendar, start_number_win, stride, window_size,
         )
         series_analog = np.load (f"{path_save}/series_analog_{str (number_similar_series)}.npy")
 
-    # max_lambda, min_lambda, min_p_value, max_p_value = search_max_lambda_p (decomposed_series, data_start, window_size)
+    #max_lambda, min_lambda, min_p_value, max_p_value = search_max_lambda_p (decomposed_series, data_start, window_size)
     
-    # print (max_lambda, min_lambda, min_p_value, max_p_value )
+    #print (max_lambda, min_lambda, min_p_value, max_p_value )
 
-    
     spline_poisson, spline_ZIP = pred_lambda_p(min_lambda = 0.0, 
                                                max_lambda = 155.74479166666666,
                                                min_p_value = 0.0, 
@@ -910,11 +858,9 @@ def generate_mask (data, sales, calendar, start_number_win, stride, window_size,
     poisson_mask, pi = Score_test_type_series(data, 0.05)
     
     print ("Начало формирования маски...")    
-    
-    number_null = (data == 0).sum ()
-    
-    max_window = 1
-        
+
+    number_null = (data == 0).sum () - data_start.sum ()
+
     for i in range (start_number_win, max_window):
         
         print (f"Этап {i}/{max_window}. Начало cusum алгоритма.")
@@ -951,7 +897,9 @@ def generate_mask (data, sales, calendar, start_number_win, stride, window_size,
         end_OOS_window [series_trigger] = window_start_series[series_trigger] + end_OOS_window[series_trigger]
         
         mask = checking_OOS (sales, data, mask, start_OOS_window.astype (int), end_OOS_window.astype (int), data_start, series_trigger, pre_period = 30, similarities_series_id = series_analog)
-        
+        # invalid_oos_but_positive = (data > 0) & (~mask)
+
+        # mask[invalid_oos_but_positive] = True
         
         np.save(f"{path_save}/mask.npy", mask)
         print (f"Этап {i} сохранен")
@@ -1007,4 +955,5 @@ if __name__ == '__main__':
 
     path_save = params['path_save_mask_generator']
 
-    generate_mask (data, sales, calendar, 0, 7, window_size, data_start, path_save, 50)
+    generate_mask (data, sales, calendar, 119, 3, window_size, data_start, path_save, 50)
+    # есть примерно 0.02 шанс ложных срабатываний, желательно отсматривать ряды с большим количество неверных срабатываний отдельно 

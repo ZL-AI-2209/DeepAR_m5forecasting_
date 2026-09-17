@@ -46,7 +46,7 @@ def train_epoch(model, optimizer, loss_fn, train_loader, params, epoch, scaler=N
     train_windows = params.train_windows
 
 
-    for i, (train_batch, static_cov, v_batch, labels_batch, mask) in enumerate(tqdm(train_loader)): # оптимизировать
+    for i, (train_batch, static_cov, v_batch, labels_batch, mask) in enumerate(tqdm(train_loader)): 
         optimizer.zero_grad(set_to_none=True)
 
         train_batch = train_batch.permute(1, 0, 2).to(device, dtype=torch.float32, non_blocking=True)
@@ -204,11 +204,9 @@ if __name__ == '__main__':
     utils.set_logger(os.path.join(model_dir, 'train.log'))
     logger.info('Loading the datasets...')
 
-    # Инициализируем датасеты по их индивидуальным путям
     train_set = LoadDataset(train_dir)
     test_set = LoadDataset(test_dir)
 
-    # Исправлено: передаем в сэмплер только один аргумент train_dir
     sampler = WeightedSampler(train_dir)
 
     train_loader = DataLoader(train_set, batch_size=params.batch_size, sampler=sampler, num_workers=12, pin_memory=True)
